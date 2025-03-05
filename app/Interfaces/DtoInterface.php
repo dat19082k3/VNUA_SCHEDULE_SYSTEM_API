@@ -1,0 +1,13 @@
+<?php
+
+namespace App\Interfaces;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Http\FormRequest;
+
+interface DtoInterface {
+    public static function fromApiFormRequest(FormRequest $request):self;
+    public static function formModel(Model $model):self;
+    public static function toArray(Model $model):array;
+
+}
