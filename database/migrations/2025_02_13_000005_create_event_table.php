@@ -41,13 +41,6 @@ return new class extends Migration
             $table->foreignId('attachment_id')->constrained('attachments')->onDelete('cascade');
             $table->timestamp('added_at');
         });
-
-        Schema::create('event_attendees', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('event_id')->constrained('events')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->timestamp('invited_at');
-        });
     }
 
 

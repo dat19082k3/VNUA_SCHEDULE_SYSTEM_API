@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\VerificationController;
+use App\Http\Controllers\DepartmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,13 +29,27 @@ Route::prefix('auth')->as('auth.')->group(function () {
     Route::middleware('guest')->group(function () {
         Route::post('register', [AuthController::class, 'register'])->name('register');
         Route::post('login', [AuthController::class, 'login'])->name('login');
-        Route::post('refresh', [AuthController::class, 'refreshToken'])->name('refresh');
     });
 
     // Các route cần bảo vệ bằng middleware auth:sanctum
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+        Route::post('refresh', [AuthController::class, 'refreshToken'])->name('refresh');
+        Route::patch('profile', [AuthController::class,'update'])->name('profile');
+    });
+});
+
+Route::prefix('departments')->group(function () {
+    // Routes công khai (GET)
+    Route::get('/', [DepartmentController::class, 'index']); // Lấy tất cả departments
+    Route::get('{id}', [DepartmentController::class, 'show']); // Lấy department theo ID
+
+    // Routes yêu cầu xác thực
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/', [DepartmentController::class, 'store']); // Tạo mới department
+        Route::put('{id}', [DepartmentController::class, 'update']); // Cập nhật department
+        Route::delete('{id}', [DepartmentController::class, 'destroy']); // Xóa department
     });
 });
 

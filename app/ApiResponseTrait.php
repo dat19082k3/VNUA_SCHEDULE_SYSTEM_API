@@ -3,7 +3,6 @@
 namespace App;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
 
 Trait ApiResponseTrait{
     public function parseGivenData(array $data=[], int $statusCode =200,array $headers = [] ):array{
@@ -15,8 +14,8 @@ Trait ApiResponseTrait{
 
         ] ;
 
-        if(isset($data['result'])){
-            $responseStructure['result'] = $data['result'] ?? null;
+        if(isset($data['data'])){
+            $responseStructure['data'] = $data['data'] ?? null;
         }
 
         if(isset($data['errors'])){
@@ -64,7 +63,7 @@ Trait ApiResponseTrait{
         return $this->apiResponse([
             'success'=>true,
             'message'=> $message,
-            'result'=> $data,
+            'data'=> $data,
         ]);
     }
 

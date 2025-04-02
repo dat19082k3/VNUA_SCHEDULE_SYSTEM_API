@@ -1,0 +1,20 @@
+# Ignore các file & folder không cần trong container
+node_modules
+npm-debug.log
+yarn.lock
+public/storage
+.env
+.env.*
+storage
+.DS_Store
+.idea
+.vscode
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+tests/
+phpunit.xml
+phpunit.xml.dist
+README.md
+.git
+.gitignore

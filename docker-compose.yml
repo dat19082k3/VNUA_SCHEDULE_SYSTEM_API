@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+  # --------------------------------
+  # PHP Service (Laravel API Backend)
+  # --------------------------------
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel-api-php
+    volumes:
+      - ./app:/var/www/html
+      - ./storage/logs/php:/var/log/php
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - app_network
+
+  # --------------------------------
+  # Nginx Service (Web Server)
+  # --------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: laravel-api-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./app:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./storage/logs/nginx:/var/log/nginx
+    depends_on:
+      - php
+    networks:
+      - app_network
+
+  # --------------------------------
+  # MySQL Service (Database)
+  # --------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: laravel-api-mysql
+    platform: linux/x86_64
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: laravel_api
+      MYSQL_USER: laravel_user
+      MYSQL_PASSWORD: laravel_password
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - app_network
+
+  # --------------------------------
+  # Redis Service (Cache & Queue)
+  # --------------------------------
+  redis:
+    image: redis:alpine
+    container_name: laravel-api-redis
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge

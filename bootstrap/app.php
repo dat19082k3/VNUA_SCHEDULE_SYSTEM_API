@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Application;
@@ -12,6 +13,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -19,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -26,7 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
             App\Http\Middleware\EnfoceJsonResponse::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-
+            EnsureFrontendRequestsAreStateful::class,
+        ]);
+        $middleware->validateCsrfTokens(except:[
+            "*"
         ]);
         $middleware->alias([
             'abilities' => CheckAbilities::class,
@@ -43,7 +49,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     'input' => $request->all(),
                 ]);
 
-                $statusCode = Response::HTTP_UNPROCESSABLE_ENTITY;
+                $statusCode = Response::HTTP_UNAUTHORIZED;
 
 
                 $response = [
