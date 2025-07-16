@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Providers;
 
 use App\Services\DepartmentService;
@@ -9,15 +10,10 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AppServiceProvider extends ServiceProvider
 {
-    protected $policies = [
-        \App\Models\Permission::class      => \App\Policies\PermissionPolicy::class,
-        \App\Models\PermissionType::class  => \App\Policies\PermissionTypePolicy::class,
-        \App\Models\PermissionGroup::class => \App\Policies\PermissionGroupPolicy::class,
-    ];
-
     protected function configureRateLimiting()
     {
         RateLimiter::for('api', function (Request $request) {
@@ -40,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole('admin') ? true : null;
+        });
 
         VerifyEmail::toMailUsing(function (object $notifiable, string $url) {
             return (new MailMessage)

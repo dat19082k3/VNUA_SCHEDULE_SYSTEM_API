@@ -30,22 +30,37 @@ return [
 
     'disks' => [
 
-        'local' => [
-            'driver' => 'local',
-            'root' => storage_path('app/private'),
-            'serve' => true,
-            'throw' => false,
-            'report' => false,
+    'local' => [
+        'driver' => 'local',
+        'root' => storage_path('app/private'),
+        'serve' => true,
+        'throw' => true, // Thay đổi thành true để bắt lỗi rõ ràng
+        'report' => true, // Báo cáo lỗi
+        'permissions' => [ // Thêm cấu hình permissions
+            'file' => [
+                'public' => 0664,
+                'private' => 0600,
+            ],
+            'dir' => [
+                'public' => 0775,
+                'private' => 0700,
+            ],
         ],
+    ],
 
-        'public' => [
-            'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
-            'visibility' => 'public',
-            'throw' => false,
-            'report' => false,
+    'public' => [
+        'driver' => 'local',
+        'root' => storage_path('app/public'),
+        'url' => env('APP_URL').'/storage',
+        'visibility' => 'public',
+        'throw' => true, // Thay đổi thành true
+        'report' => true,
+        'permissions' => [
+            'file' => 0664,
+            'dir' => 0775,
         ],
+    ],
+
 
         's3' => [
             'driver' => 's3',

@@ -2,14 +2,22 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Attachment extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
-    protected $fillable = ['file_name', 'file_url', 'file_type', 'uploader_id'];
+    protected $fillable = [
+        'uid',
+        'file_name',
+        'file_url',
+        'file_type',
+        'size',
+        'uploader_id',
+    ];
 
     public function uploader()
     {
@@ -18,7 +26,8 @@ class Attachment extends Model
 
     public function events()
     {
-        return $this->belongsToMany(Event::class, 'event_attachments', 'attachment_id', 'event_id')
-            ->withPivot('added_at');
+        return $this->belongsToMany(Event::class, 'event_attachments')
+                    ->withPivot('added_at')
+                    ->withTimestamps();
     }
 }

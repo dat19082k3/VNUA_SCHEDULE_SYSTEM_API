@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use Throwable;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -19,14 +18,12 @@ class DatabaseSeeder extends Seeder
 
         try {
             $this->call([
-                DepartmentsTableSeeder::class,
+                RolePermissionTableSeeder::class,
                 UsersTableSeeder::class,
-                RolesTableSeeder::class,
-                PermissionsTableSeeder::class,
-                PermissionGroupsTableSeeder::class,
-                PermissionTypesTableSeeder::class,
                 EventsTableSeeder::class,
-                AttachmentsTableSeeder::class,
+                DepartmentsTableSeeder::class,
+                LocationsTableSeeder::class,
+                // AttachmentsTableSeeder::class,
                 // Thêm các seeder khác nếu có
             ]);
 

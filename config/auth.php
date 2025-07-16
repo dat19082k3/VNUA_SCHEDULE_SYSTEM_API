@@ -36,11 +36,14 @@ return [
     */
 
     'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
         'api' => [
-        'driver' => 'sanctum',
-        'provider' => 'users',
-        'hash' => false,
-    ],
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*
@@ -112,5 +115,10 @@ return [
     */
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
-
+    'sso' => [
+        'uri' => env('SSO_URI', 'https://sso.example.com'),
+        'client_id' => env('SSO_CLIENT_ID', 'your-client-id'),
+        'client_secret' => env('SSO_CLIENT_SECRET', 'your-client-secret'),
+        'redirect_uri' => env('SSO_REDIRECT_URI', 'https://your-app.example.com/sso/callback'),
+    ],
 ];

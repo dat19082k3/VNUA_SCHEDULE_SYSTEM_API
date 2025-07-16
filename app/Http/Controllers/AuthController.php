@@ -4,35 +4,27 @@ namespace App\Http\Controllers;
 
 use App\Constants\Permissions;
 use App\Dtos\UserDto;
-use App\Events\InfoAuthUpdated;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\ProfileRequest;
-use App\Http\Requests\Auth\RegisterUserRequest;
 use App\Models\User;
 use App\Services\UserService;
+use App\Services\AuthService;
+
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
-use Symfony\Component\HttpKernel\Profiler\Profile;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
 {
-    public function __construct(private readonly UserService $userService) {}
+    protected UserService $userService;
+    protected AuthService $authService;
 
-    /**
-     * Đăng ký tài khoản mới
-     */
-    public function register(RegisterUserRequest $request): JsonResponse
+    public function __construct(UserService $userService, AuthService $authService)
     {
-        $userDto = UserDto::fromApiFormRequest($request);
-        $user = $this->userService->createUser($userDto);
-
-        return $this->sendSuccess(
-            ['user' => $user],
-            'Tạo người dùng mới thành công!'
-        );
+        $this->userService = $userService;
+        $this->authService = $authService;
     }
 
     /**
@@ -40,31 +32,14 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->validated();
+        $validated = $request->validated();
 
-        if (!Auth::attempt($credentials)) {
-            Log::warning('Login failed - Invalid credentials', ['email' => $credentials['email']]);
-            return $this->sendError('Email hoặc mật khẩu không chính xác', 401);
-        }
-
-        /** @var User $user */
-        $user = Auth::user();
-
-        // Xóa token cũ (nếu có)
-        $user->tokens()->delete();
-
-        if ($user->status === 0) {
-            Log::warning('Login failed - Account inactive', ['email' => $user->email]);
-            return $this->sendError('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.', 403);
-        }
-
+        $user = $this->authService->login($validated);
         [$accessToken, $refreshToken] = $this->generateTokensForUser($user);
 
         Log::info('User logged in successfully', ['user_id' => $user->id, 'email' => $user->email]);
 
-        // Trả về token trong response (hoặc set vào cookie nếu cần)
         return $this->sendSuccess([
-            'user' => $user,
             'access_token' => $accessToken,
             'refresh_token' => $refreshToken,
             'token_type' => 'Bearer',
@@ -95,8 +70,8 @@ class AuthController extends Controller
             'refresh_token' => $newRefreshToken,
             'token_type' => 'Bearer',
         ], 'Token mới đã được cấp')
-        ->cookie('access_token', $newAccessToken, 60 * 24, '/', null, false, true)
-        ->cookie('refresh_token', $newRefreshToken, 60 * 24 * 7, '/', null, false, true);
+            ->cookie('access_token', $newAccessToken, 60 * 24, '/', null, false, true)
+            ->cookie('refresh_token', $newRefreshToken, 60 * 24 * 7, '/', null, false, true);
     }
 
     /**
@@ -109,9 +84,9 @@ class AuthController extends Controller
         if ($user) {
             $user->currentAccessToken()?->delete();
             Log::info('User logged out', ['user_id' => $user->id]);
-            return $this->sendSuccess(null, 'Đăng xuất thành công')        
-            ->cookie('access_token',-1)
-            ->cookie('refresh_token',-1);
+            return $this->sendSuccess(null, 'Đăng xuất thành công')
+                ->cookie('access_token', -1)
+                ->cookie('refresh_token', -1);
         }
 
         return $this->sendError('Không có người dùng nào đang đăng nhập', 401);
@@ -125,10 +100,21 @@ class AuthController extends Controller
         $user = $request->user();
 
         if (!$user) {
-            return $this->sendError('Người dùng chưa đăng nhập', 401);
+            return $this->sendError('Người dùng chưa đăng nhập', Response::HTTP_UNAUTHORIZED);
         }
 
-        return $this->sendSuccess(['user' => $user], 'Truy xuất thông tin người dùng thành công');
+        // Lấy vai trò và quyền của người dùng
+        $roles = $user->getRoleNames(); // Lấy danh sách tên vai trò
+        $permissions = $user->getAllPermissions()->pluck('name'); // Lấy danh sách tên quyền
+
+        // Tạo đối tượng user với roles và permissions lồng bên trong
+        $userData = $user->toArray();
+        $userData['roles'] = $roles;
+        $userData['permissions'] = $permissions;
+
+        return $this->sendSuccess([
+            'user' => $userData,
+        ], 'Truy xuất thông tin người dùng thành công');
     }
 
     public function update(ProfileRequest $request)
@@ -136,7 +122,7 @@ class AuthController extends Controller
         $userDto = UserDto::fromApiFormRequest($request);
         $user = $this->userService->updateUser($userDto);
 
-        return $this->sendSuccess(['user' => $user],'Cập nhật thông tin người dùng thành công');
+        return $this->sendSuccess(['user' => $user], 'Cập nhật thông tin người dùng thành công');
     }
 
     /**

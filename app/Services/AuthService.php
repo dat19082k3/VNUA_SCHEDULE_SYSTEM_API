@@ -4,41 +4,85 @@ namespace App\Services;
 
 use App\Constants\Permissions;
 use App\Dtos\UserDto;
-use App\Events\InfoAuthUpdated;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
+use Spatie\Permission\Models\Role;
 
 class AuthService
 {
+    public function __construct(protected SsoService $ssoService) {}
+
     /**
-     * Đăng nhập hệ thống
+     * Đăng nhập qua hệ thống SSO
      */
-    public function login(array $credentials): array
+    public function login(array $credentials): User
     {
-        if (!Auth::attempt($credentials)) {
-            Log::warning('Login failed - Invalid credentials', ['email' => $credentials['email']]);
-            throw new \Exception('Email hoặc mật khẩu không chính xác');
+        if (empty($credentials['code'])) {
+            throw new \Exception('Thiếu mã xác thực từ hệ thống SSO.');
         }
 
-        /** @var User $user */
-        $user = Auth::user();
+        // Lấy token từ hệ thống SSO
+        $token = $this->ssoService->getUserFromSsoCode($credentials['code']);
 
-        if ($user->status === 0) {
-            Log::warning('Login failed - Account inactive', ['email' => $user->email]);
-            throw new \Exception('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
+        if (!$token) {
+            Log::warning(message: 'SSO login failed - Invalid or missing user data');
+            throw new \Exception('Đăng nhập SSO thất bại. Không lấy được token từ hệ thống.');
         }
 
-        // Xóa token cũ (nếu có)
+        //Lấy thông tin người dùng từ SSO
+        $ssoUser = $this->ssoService->getUserData($token);
+        Log::info('SSO user data retrieved', ['data' => $ssoUser]);
+        if (!$ssoUser) {
+            Log::warning(message: 'SSO login failed - Invalid or missing user data');
+            throw new \Exception('Đăng nhập SSO thất bại. Không thể xác thực người dùng.');
+        }
+
+        // Kiểm tra xem đây có phải là người dùng đầu tiên hay không
+        $isFirstUser = User::count() === 0;
+
+        // Tìm hoặc tạo user trong hệ thống local
+        $user = User::updateOrCreate(
+            ['email' => $ssoUser['email']],
+            [
+                'sso_id' => $ssoUser['id'],
+                'user_name' => $ssoUser['user_name'],
+                'first_name' => $ssoUser['first_name'],
+                'last_name' => $ssoUser['last_name'],
+                'email' => $ssoUser['email'],
+                'phone' => $ssoUser['phone'],
+                'role_sso' => $ssoUser['role'],
+                'status' => $ssoUser['status'],
+                'code' => $ssoUser['code'],
+                'department_id' => $ssoUser['department_id'],
+                'faculty_id' => $ssoUser['faculty_id'],
+                'protected' => $isFirstUser ? true : ($ssoUser['protected'] ?? false),
+            ]
+        );
+
+        // Đảm bảo vai trò tồn tại trước khi gán
+        $adminRole = Role::firstOrCreate(['name' => 'chief_of_office', 'guard_name' => 'web']);
+        $staffRole = Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'web']);
+
+        // Gán vai trò
+        if ($isFirstUser || $user->email === 'chanhvp@vnua.edu.vn') {
+            $user->syncRoles([$adminRole]);
+        } else {
+            // Chỉ gán vai trò lecturer nếu người dùng chưa có vai trò
+            $existingRoles = $user->roles()->where('guard_name', 'web')->pluck('name')->toArray();
+            if (empty($existingRoles)) {
+                $user->syncRoles([$staffRole]);
+            }
+        }
+
+
+        Auth::login($user);
         $user->tokens()->delete();
 
-        return $this->generateTokensForUser($user);
+        return $user;
     }
 
-    /**
-     * Làm mới token
-     */
     public function refreshToken(string $currentRefreshToken): array
     {
         $refreshToken = PersonalAccessToken::findToken($currentRefreshToken);
@@ -48,53 +92,37 @@ class AuthService
             throw new \Exception('Token không hợp lệ hoặc đã hết hạn');
         }
 
-        /** @var User $user */
         $user = $refreshToken->tokenable;
         $refreshToken->delete();
 
         return $this->generateTokensForUser($user);
     }
 
-    /**
-     * Đăng xuất
-     */
     public function logout(User $user): void
     {
-        if ($user) {
-            $user->currentAccessToken()?->delete();
+        if ($user) {;
             Log::info('User logged out', ['user_id' => $user->id]);
         }
     }
 
-    /**
-     * Lấy thông tin người dùng đang đăng nhập
-     */
     public function getCurrentUser(): User
     {
         return Auth::user();
     }
 
-    /**
-     * Cập nhật thông tin người dùng
-     */
     public function update(UserDto $userDto): User
     {
         $user = User::findOrFail($userDto->getId());
         $user->update([
             'first_name' => $userDto->getFirstName(),
-            'last_name'=> $userDto->getLastName(),
+            'last_name' => $userDto->getLastName(),
             'phone' => $userDto->getPhone(),
             'department_id' => $userDto->getDepartmentId(),
         ]);
 
-        event(new InfoAuthUpdated($user));
-
         return $user;
     }
 
-    /**
-     * Tạo access_token & refresh_token cho user
-     */
     private function generateTokensForUser(User $user): array
     {
         $accessTokenExpiresAt = now()->addDays(1);

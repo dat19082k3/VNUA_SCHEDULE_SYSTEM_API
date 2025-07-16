@@ -29,20 +29,9 @@ class Department extends Model
         'deleted_at' => 'datetime',
     ];
 
-    /**
-     * Quan hệ nhiều-nhiều với chính nó để xác định các phòng ban cha.
-     */
-    public function parents()
+    public function events()
     {
-        return $this->belongsToMany(self::class, 'department_parents', 'department_id', 'parent_id');
-    }
-
-    /**
-     * Quan hệ nhiều-nhiều với chính nó để xác định các phòng ban con.
-     */
-    public function children()
-    {
-        return $this->belongsToMany(self::class, 'department_parents', 'parent_id', 'department_id');
+        return $this->hasMany(Event::class);
     }
 
     /**
@@ -87,36 +76,5 @@ class Department extends Model
             return $department->restore();
         }
         return false;
-    }
-
-    /**
-     * Phương thức để lấy thông tin phòng ban dưới dạng mảng
-     */
-    public function toArray()
-    {
-        return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'description' => $this->description,
-            'parent_ids' => $this->parents()->pluck('id')->toArray(),
-            'created_at' => $this->created_at->toDateTimeString(),
-            'updated_at' => $this->updated_at->toDateTimeString(),
-        ];
-    }
-
-    /**
-     * Phương thức để kiểm tra xem phòng ban có tồn tại hay không
-     */
-    public static function exists(int $id): bool
-    {
-        return self::where('id', $id)->exists();
-    }
-
-    /**
-     * Thiết lập các phòng ban cha
-     */
-    public function setParents(array $parentIds)
-    {
-        $this->parents()->sync($parentIds);
     }
 }
