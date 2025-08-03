@@ -20,6 +20,8 @@ class EventHistory extends Model
 
     protected $casts = [
         'changed_at' => 'datetime',
+        'old_value' => 'string',
+        'new_value' => 'string',
     ];
 
     public function event()

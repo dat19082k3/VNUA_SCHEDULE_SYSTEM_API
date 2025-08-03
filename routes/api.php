@@ -26,13 +26,21 @@ Route::group(['as' => 'api.'], function () {
     });
 
     // Department Routes
+    Route::get('departments/all', [DepartmentController::class, 'getAllDepartments'])->name('departments.all');
     Route::apiResource('departments', DepartmentController::class)->only(['index', 'show']);
+
     // Event Routes
     Route::apiResource('events', EventController::class)->only(['index', 'show']);
     // Event Attachments Routes
     Route::apiResource('attachments', EventAttachmentController::class)->only(['index', 'show']);
     // Location Routes
     Route::apiResource('locations', LocationController::class)->only(['index', 'show']);
+
+    // User Public Routes
+    Route::prefix('users')->as('users.')->group(function () {
+        Route::get('/all', [UserController::class, 'getAllUsers'])->name('all');
+        Route::get('/department/{departmentId}', [UserController::class, 'getUsersByDepartment'])->name('by-department');
+    });
 });
 
 // Protected Routes
@@ -59,12 +67,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Department Routes
     Route::post('departments', [DepartmentController::class, 'store'])
         ->middleware('can:create_departments');
-    Route::put('departments/{department}', [DepartmentController::class, 'update'])
+    Route::put('departments/{id}', [DepartmentController::class, 'update'])
         ->middleware('can:edit_departments');
-    Route::patch('departments/{department}', [DepartmentController::class, 'update'])
+    Route::patch('departments/{id}', [DepartmentController::class, 'update'])
         ->middleware('can:edit_departments');
-    Route::delete('departments/{department}', [DepartmentController::class, 'destroy'])
+    Route::delete('departments/{id}', [DepartmentController::class, 'destroy'])
         ->middleware('can:delete_departments');
+    Route::post('departments/{id}/assign-users', [DepartmentController::class, 'assignUsers'])
+        ->middleware('can:edit_departments');
+    Route::post('departments/{id}/remove-users', [DepartmentController::class, 'removeUsers'])
+        ->middleware('can:edit_departments');
 
     // Event Routes
     Route::post('events', [EventController::class, 'store'])
@@ -164,5 +176,24 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/permissions/{roleId}', [UserController::class, 'getPermissionsOfRole'])
             ->name('permissions-of-role')
             ->middleware('can:view_permissions');
+    });
+
+    // Event User Interaction Routes
+    Route::prefix('events')->as('events.')->group(function () {
+        // API ghim sự kiện
+        Route::post('{eventId}/mark', [EventController::class, 'markEvent'])
+            ->name('mark');
+
+        // API bỏ ghim sự kiện
+        Route::post('{eventId}/unmark', [EventController::class, 'unmarkEvent'])
+            ->name('unmark');
+
+        // API đánh dấu đã xem sự kiện
+        Route::post('{eventId}/view', [EventController::class, 'viewEvent'])
+            ->name('view');
+
+        // API lấy danh sách sự kiện đã ghim
+        Route::get('/marked', [EventController::class, 'getMarkedEvents'])
+            ->name('marked');
     });
 });

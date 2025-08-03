@@ -31,7 +31,7 @@ class AuthService
             throw new \Exception('Đăng nhập SSO thất bại. Không lấy được token từ hệ thống.');
         }
 
-        //Lấy thông tin người dùng từ SSO
+        // Lấy thông tin người dùng từ SSO
         $ssoUser = $this->ssoService->getUserData($token);
         Log::info('SSO user data retrieved', ['data' => $ssoUser]);
         if (!$ssoUser) {
@@ -42,10 +42,27 @@ class AuthService
         // Kiểm tra xem đây có phải là người dùng đầu tiên hay không
         $isFirstUser = User::count() === 0;
 
-        // Tìm hoặc tạo user trong hệ thống local
-        $user = User::updateOrCreate(
-            ['email' => $ssoUser['email']],
-            [
+        // Tìm người dùng trong hệ thống local
+        $user = User::where('email', $ssoUser['email'])->first();
+
+        if ($user) {
+            // Ghi đè thông tin người dùng nếu đã tồn tại
+            $user->update([
+                'sso_id' => $ssoUser['id'],
+                'user_name' => $ssoUser['user_name'],
+                'first_name' => $ssoUser['first_name'],
+                'last_name' => $ssoUser['last_name'],
+                'phone' => $ssoUser['phone'],
+                'role_sso' => $ssoUser['role'],
+                'status' => $ssoUser['status'],
+                'code' => $ssoUser['code'],
+                'department_id' => $ssoUser['department_id'],
+                'faculty_id' => $ssoUser['faculty_id'],
+                'protected' => $isFirstUser ? true : ($ssoUser['protected'] ?? false),
+            ]);
+        } else {
+            // Tạo mới người dùng nếu chưa tồn tại
+            $user = User::create([
                 'sso_id' => $ssoUser['id'],
                 'user_name' => $ssoUser['user_name'],
                 'first_name' => $ssoUser['first_name'],
@@ -58,8 +75,8 @@ class AuthService
                 'department_id' => $ssoUser['department_id'],
                 'faculty_id' => $ssoUser['faculty_id'],
                 'protected' => $isFirstUser ? true : ($ssoUser['protected'] ?? false),
-            ]
-        );
+            ]);
+        }
 
         // Đảm bảo vai trò tồn tại trước khi gán
         $adminRole = Role::firstOrCreate(['name' => 'chief_of_office', 'guard_name' => 'web']);
@@ -75,7 +92,6 @@ class AuthService
                 $user->syncRoles([$staffRole]);
             }
         }
-
 
         Auth::login($user);
         $user->tokens()->delete();

@@ -17,7 +17,7 @@ class EventUpdateRequest extends FormRequest
             'location'       => ['sometimes', 'nullable', 'string', 'max:255'],
             'start_time'     => ['sometimes', 'date'],
             'end_time'       => ['sometimes', 'date', 'after_or_equal:start_time'],
-            'host'           => ['sometimes', 'string', 'max:50'],
+            'host_id'        => ['sometimes', 'integer', 'exists:users,id'],
             'participants'   => ['sometimes', 'nullable', 'string', 'max:255'],
             'reminder_type'  => ['sometimes', 'in:none,calendar'],
             'reminder_time'  => ['nullable', 'date', 'required_if:reminder_type,calendar'],

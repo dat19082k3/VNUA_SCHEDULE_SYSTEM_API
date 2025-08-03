@@ -30,8 +30,10 @@ class EventStoreRequest extends FormRequest
             'custom_preparers' => ['nullable', 'string', 'max:255'],
             'start_time' => ['required', 'date'],
             'end_time' => ['required', 'date', 'after_or_equal:start_time'],
-            'host' => ['required', 'string', 'max:50'],
-            'participants' => ['nullable', 'string', 'max:255'],
+            'host_id' => ['required', 'integer', 'exists:users,id'],
+            'participants' => ['nullable', 'array'],
+            'participants.*.type' => ['required_with:participants', 'string', 'in:user,department'],
+            'participants.*.id' => ['required_with:participants', 'integer'],
             'preparer_ids' => ['required', 'array', 'min:1'],
             'preparer_ids.*' => [
                 'integer',
@@ -78,6 +80,11 @@ class EventStoreRequest extends FormRequest
             'attachments.*.required_with' => 'Mỗi tệp đính kèm phải có ID hợp lệ.',
             'attachments.*.integer' => 'ID tệp đính kèm phải là một số nguyên.',
             'attachments.*.exists' => 'ID tệp đính kèm không tồn tại trong hệ thống.',
+            'participants.array' => 'Danh sách người tham gia phải là một mảng.',
+            'participants.*.type.required_with' => 'Loại người tham gia là bắt buộc.',
+            'participants.*.type.in' => 'Loại người tham gia phải là "user" hoặc "department".',
+            'participants.*.id.required_with' => 'ID người tham gia là bắt buộc.',
+            'participants.*.id.integer' => 'ID người tham gia phải là số nguyên.',
         ];
     }
 
@@ -96,6 +103,11 @@ class EventStoreRequest extends FormRequest
         if ($this->has('preparer_ids') && is_string($this->preparer_ids)) {
             $this->merge([
                 'preparer_ids' => json_decode($this->preparer_ids, true) ?? [],
+            ]);
+        }
+        if ($this->has('participants') && is_string($this->participants)) {
+            $this->merge([
+                'participants' => json_decode($this->participants, true) ?? [],
             ]);
         }
     }

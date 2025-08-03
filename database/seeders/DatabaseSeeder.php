@@ -14,25 +14,21 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::beginTransaction();
-
+        // Run each seeder individually to avoid transaction issues
         try {
             $this->call([
-                RolePermissionTableSeeder::class,
-                UsersTableSeeder::class,
-                EventsTableSeeder::class,
                 DepartmentsTableSeeder::class,
                 LocationsTableSeeder::class,
+                RolePermissionTableSeeder::class,
+                UsersTableSeeder::class,
+                UserDepartmentsSeeder::class,
+                EventsTableSeeder::class,
+                UserEventsSeeder::class,
                 // AttachmentsTableSeeder::class,
                 // Thêm các seeder khác nếu có
             ]);
 
-            // Commit nếu tất cả thành công
-            DB::commit();
         } catch (Throwable $e) {
-            // Rollback nếu có bất kỳ lỗi nào
-            DB::rollBack();
-
             // In ra lỗi để debug
             $this->command->error('Seeder failed: ' . $e->getMessage());
             throw $e; // Ném lỗi tiếp cho Artisan thấy

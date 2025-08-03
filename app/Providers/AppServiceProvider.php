@@ -8,9 +8,11 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,13 +22,41 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
         });
     }
+
+    protected function configureLogging()
+    {
+        // Log SQL queries trong môi trường dev
+        if (config('app.debug')) {
+            DB::listen(function ($query) {
+                Log::debug(
+                    'SQL Query',
+                    [
+                        'query' => $query->sql,
+                        'bindings' => $query->bindings,
+                        'time' => $query->time . 'ms',
+                    ]
+                );
+            });
+        }
+    }
+
     /**
      * Register any application services.
      */
     public function register(): void
     {
-        $this->app->singleton(DepartmentService::class, function ($app) {
-            return new DepartmentService();
+        // Đăng ký LoggingMailTransport
+        $this->app->extend('mail.manager', function ($manager, $app) {
+            $manager->extend('logging', function ($config) {
+                // Lấy transport chính từ cấu hình
+                $baseTransport = app('mail.manager')->createSymfonyTransport(
+                    config('mail.mailers.' . config('mail.default'))
+                );
+
+                return new \App\Mail\LoggingMailTransport($baseTransport);
+            });
+
+            return $manager;
         });
     }
 
@@ -36,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+        $this->configureLogging();
         Gate::before(function ($user, $ability) {
             return $user->hasRole('admin') ? true : null;
         });

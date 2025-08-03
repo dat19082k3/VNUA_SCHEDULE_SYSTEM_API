@@ -9,12 +9,13 @@ class DepartmentsTableSeeder extends Seeder
 {
     public function run()
     {
-        $currentTime = Carbon::now(); // Lấy thời gian hiện tại
+        try {
+            $currentTime = Carbon::now(); // Lấy thời gian hiện tại
 
-        $departments = [
-            ['id' => 44, 'name' => 'Ban Giám Đốc', 'created_at' => $currentTime, 'updated_at' => $currentTime],
-            ['id' => 257, 'name' => 'Hội đồng Học viện Nông nghiệp Việt Nam', 'created_at' => $currentTime, 'updated_at' => $currentTime],
-            ['id' => 53, 'name' => 'Văn phòng Đảng ủy', 'created_at' => $currentTime, 'updated_at' => $currentTime],
+            $departments = [
+                ['id' => 44, 'name' => 'Ban Giám Đốc', 'created_at' => $currentTime, 'updated_at' => $currentTime],
+                ['id' => 257, 'name' => 'Hội đồng Học viện Nông nghiệp Việt Nam', 'created_at' => $currentTime, 'updated_at' => $currentTime],
+                ['id' => 53, 'name' => 'Văn phòng Đảng ủy', 'created_at' => $currentTime, 'updated_at' => $currentTime],
             ['id' => 39, 'name' => 'Công đoàn Học viện', 'created_at' => $currentTime, 'updated_at' => $currentTime],
             ['id' => 252, 'name' => 'Đoàn thanh niên', 'created_at' => $currentTime, 'updated_at' => $currentTime],
             ['id' => 262, 'name' => 'Hội sinh viên', 'created_at' => $currentTime, 'updated_at' => $currentTime],
@@ -72,6 +73,12 @@ class DepartmentsTableSeeder extends Seeder
             ['id' => 261, 'name' => 'TT Quan hệ công chúng và HTSV', 'created_at' => $currentTime, 'updated_at' => $currentTime],
         ];
 
-        DB::table('departments')->insert($departments);
+        // Use insertOrIgnore instead of insert to skip duplicates
+        DB::table('departments')->insertOrIgnore($departments);
+        } catch (\Exception $e) {
+            // Log the error
+            echo "Error in DepartmentsTableSeeder: " . $e->getMessage() . "\n";
+            throw $e;
+        }
     }
 }

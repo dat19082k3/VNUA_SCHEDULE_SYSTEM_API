@@ -11,21 +11,22 @@ return new class extends Migration
         // Tạo bảng users
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('sso_id')->unique();
-            $table->string('user_name')->unique();
+            $table->unsignedBigInteger('sso_id')->unique()->nullable();
+            $table->string('user_name')->unique()->nullable();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
             $table->string('email')->unique();
-            $table->string('phone');
+            $table->string('phone')->nullable();
+            $table->text('hometown')->nullable();
             $table->string('status')->default('active');
-            $table->string('role_sso');
+            $table->string('role_sso')->nullable();
             $table->boolean('protected')->default(false);
             $table->string('code')->nullable();
-            $table->foreignId('department_id')
+            $table->foreignId('primary_department_id')
                 ->nullable()
                 ->constrained('departments')
                 ->onDelete('set null')
-                ->name('users_department_id_foreign');
+                ->name('users_primary_department_id_foreign');
             $table->foreignId('faculty_id')
                 ->nullable()
                 ->constrained('faculties')
@@ -38,6 +39,8 @@ return new class extends Migration
 
     public function down(): void
     {
+        Schema::dropIfExists('user_departments');
+        Schema::dropIfExists('user_events');
         Schema::dropIfExists('users');
     }
 };

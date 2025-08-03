@@ -6,10 +6,12 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Models\Department;
 use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response;
 use Laravel\Sanctum\PersonalAccessToken;
 use Spatie\Permission\Models\Permission;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -65,7 +67,7 @@ class UserController extends Controller
                 : 'created_at';
             $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'desc';
 
-            $query = User::with(['department', 'roles']);
+            $query = User::with(['primaryDepartment', 'roles']);
 
             if ($search) {
                 $query->where(function ($q) use ($search) {
@@ -88,9 +90,9 @@ class UserController extends Controller
                     'role_sso' => $user->role_sso,
                     'status' => $user->status,
                     'code' => $user->code,
-                    'department' => $user->department ? [
-                        'id' => $user->department->id,
-                        'name' => $user->department->name,
+                    'department' => $user->primaryDepartment ? [
+                        'id' => $user->primaryDepartment->id,
+                        'name' => $user->primaryDepartment->name,
                     ] : null,
                     'protected' => $user->protected,
                     'roles' => $user->roles->pluck('name'),
@@ -101,10 +103,11 @@ class UserController extends Controller
 
             // Return JSON response
             return $this->sendSuccess([
-                'users' => $userData,
+                'users' => $users->items(),
                 'page' => $users->currentPage(),
                 'per_page' => $users->perPage(),
                 'total' => $users->total(),
+                'last_page' => $users->lastPage(),
                 'sort_field' => $sortField,
                 'sort_order' => $sortOrder,
                 'message' => 'Danh sách người dùng đã được lấy thành công.',
@@ -663,6 +666,159 @@ class UserController extends Controller
                 'error' => $e->getMessage(),
             ]);
             return $this->sendError('Đã xảy ra lỗi khi lấy tất cả quyền.', Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Lấy danh sách tất cả người dùng không phân trang
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getAllUsers(Request $request): JsonResponse
+    {
+        try {
+            // Tùy chọn sắp xếp
+            $sortField = $request->query('sort_field', 'created_at');
+            $sortOrder = $request->query('sort_order', 'desc');
+            $search = $request->query('search');
+
+            $sortField = in_array($sortField, ['user_name', 'email', 'first_name', 'last_name', 'created_at', 'updated_at'])
+                ? $sortField
+                : 'created_at';
+            $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'desc';
+
+            $query = User::with(['primaryDepartment', 'roles']);
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('user_name', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%')
+                        ->orWhereRaw("CONCAT(last_name, ' ', first_name) LIKE ?", ['%' . $search . '%']);
+                });
+            }
+
+            $users = $query->orderBy($sortField, $sortOrder)->get();
+
+            $userData = $users->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'user_name' => $user->user_name,
+                    'full_name' => $user->last_name . ' ' . $user->first_name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'role_sso' => $user->role_sso,
+                    'status' => $user->status,
+                    'code' => $user->code,
+                    'department' => $user->primaryDepartment ? [
+                        'id' => $user->primaryDepartment->id,
+                        'name' => $user->primaryDepartment->name,
+                    ] : null,
+                    'protected' => $user->protected,
+                    'roles' => $user->roles->pluck('name'),
+                    'created_at' => $user->created_at->toIso8601String(),
+                    'updated_at' => $user->updated_at->toIso8601String(),
+                ];
+            });
+
+            // Trả về JSON response
+            return $this->sendSuccess([
+                'users' => $userData,
+                'total' => $users->count(),
+                'message' => 'Danh sách tất cả người dùng đã được lấy thành công.',
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            Log::error('Lỗi khi lấy danh sách tất cả người dùng:', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->sendError('Đã xảy ra lỗi khi lấy danh sách người dùng.', Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Lấy danh sách người dùng theo mã ngành/phòng ban
+     *
+     * @param Request $request
+     * @param int $departmentId ID của phòng ban/ngành
+     * @return JsonResponse
+     */
+    public function getUsersByDepartment(Request $request, $departmentId): JsonResponse
+    {
+        try {
+            // API công khai không yêu cầu xác thực
+
+            // Kiểm tra phòng ban tồn tại
+            $department = Department::find($departmentId);
+            if (!$department) {
+                return $this->sendError('Không tìm thấy phòng ban/ngành với ID đã cung cấp.', Response::HTTP_NOT_FOUND);
+            }
+
+            // Lấy danh sách người dùng thuộc phòng ban (kết hợp cả primary_department_id và bảng liên kết)
+            $query = User::where(function ($q) use ($departmentId) {
+                $q->where('primary_department_id', $departmentId)
+                  ->orWhereHas('departments', function ($subQuery) use ($departmentId) {
+                      $subQuery->where('departments.id', $departmentId);
+                  });
+            });
+
+            // Sắp xếp
+            $sortField = $request->query('sort_field', 'created_at');
+            $sortOrder = $request->query('sort_order', 'desc');
+
+            $sortField = in_array($sortField, ['user_name', 'email', 'first_name', 'last_name', 'created_at', 'updated_at'])
+                ? $sortField
+                : 'created_at';
+            $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'desc';
+
+            // Thực hiện với eager loading
+            $users = $query->with(['primaryDepartment', 'departments', 'roles'])
+                          ->orderBy($sortField, $sortOrder)
+                          ->get();
+
+            $userData = $users->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'user_name' => $user->user_name,
+                    'full_name' => $user->last_name . ' ' . $user->first_name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'role_sso' => $user->role_sso,
+                    'status' => $user->status,
+                    'code' => $user->code,
+                    'primary_department' => $user->primaryDepartment ? [
+                        'id' => $user->primaryDepartment->id,
+                        'name' => $user->primaryDepartment->name,
+                    ] : null,
+                    'departments' => $user->departments->map(function ($dept) {
+                        return [
+                            'id' => $dept->id,
+                            'name' => $dept->name
+                        ];
+                    }),
+                    'protected' => $user->protected,
+                    'roles' => $user->roles->pluck('name'),
+                    'created_at' => $user->created_at->toIso8601String(),
+                    'updated_at' => $user->updated_at->toIso8601String(),
+                ];
+            });
+
+            return $this->sendSuccess([
+                'users' => $userData,
+                'department' => [
+                    'id' => $department->id,
+                    'name' => $department->name
+                ],
+                'total' => $users->count(),
+                'message' => 'Danh sách người dùng theo phòng ban/ngành đã được lấy thành công.',
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            Log::error('Lỗi khi lấy danh sách người dùng theo phòng ban/ngành:', [
+                'error' => $e->getMessage(),
+                'stack_trace' => $e->getTraceAsString(),
+            ]);
+
+            return $this->sendError('Đã xảy ra lỗi khi lấy danh sách người dùng theo phòng ban/ngành.', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

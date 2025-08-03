@@ -15,8 +15,13 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->dateTime('start_time');
             $table->dateTime('end_time');
-            $table->string('host', 50);
-            $table->text('participants')->nullable();
+            $table->foreignId('host_id')
+                ->nullable()
+                ->constrained('users', 'id')
+                ->nullOnDelete()
+                ->index()
+                ->name('events_host_id_foreign');
+            $table->json('participants')->nullable(); // Lưu dạng JSON [{"type":"user","id":1},{"type":"department","id":2}]
             $table->enum('status', ['pending', 'approved', 'declined'])->default('pending');
             $table->enum('reminder_type', ['none', 'calendar'])->default('none');
             $table->dateTime('reminder_time')->nullable();
@@ -108,7 +113,9 @@ return new class extends Migration
     {
         Schema::dropIfExists('event_attachments');
         Schema::dropIfExists('attachments');
-        Schema::dropIfExists('events');
+        Schema::dropIfExists('event_preparers');
+        Schema::dropIfExists('event_locations');
         Schema::dropIfExists('event_histories');
+        Schema::dropIfExists('events');
     }
 };

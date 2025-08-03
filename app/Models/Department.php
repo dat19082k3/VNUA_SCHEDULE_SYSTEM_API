@@ -34,6 +34,26 @@ class Department extends Model
         return $this->hasMany(Event::class);
     }
 
+    // Mối quan hệ nhiều-nhiều với bảng User
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_departments')
+                    ->withTimestamps();
+    }
+
+    // Mối quan hệ một-nhiều với bảng User (người dùng có phòng ban này là primary)
+    public function primaryUsers()
+    {
+        return $this->hasMany(User::class, 'primary_department_id');
+    }
+
+    // Mối quan hệ nhiều-nhiều với bảng Event qua bảng event_preparers
+    public function preparedEvents()
+    {
+        return $this->belongsToMany(Event::class, 'event_preparers', 'department_id', 'event_id')
+                    ->withTimestamps();
+    }
+
     /**
      * Scope: Lọc các phòng ban theo tên
      */

@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'log'),
+    'default' => env('MAIL_MAILER', 'logging'),
 
     /*
     |--------------------------------------------------------------------------
@@ -93,6 +93,10 @@ return [
                 'ses',
                 'postmark',
             ],
+        ],
+
+        'logging' => [
+            'transport' => 'logging',
         ],
 
     ],
